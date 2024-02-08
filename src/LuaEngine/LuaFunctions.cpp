@@ -761,8 +761,6 @@ ElunaRegister<Creature> CreatureMethods[] =
     { "GetWaypointPath", &LuaCreature::GetWaypointPath },
     { "GetLootMode", &LuaCreature::GetLootMode },
     { "GetLoot", &LuaCreature::GetLoot },
-    { "AddLootItem", &LuaCreature::AddLootItem },
-    { "RemoveLootItem", &LuaCreature::RemoveLootItem },
     { "GetLootRecipient", &LuaCreature::GetLootRecipient },
     { "GetLootRecipientGroup", &LuaCreature::GetLootRecipientGroup },
     { "GetNPCFlags", &LuaCreature::GetNPCFlags },
@@ -1324,8 +1322,12 @@ ElunaRegister<Roll> RollMethods[] =
 ElunaRegister<Loot> LootMethods[] =
 {
     { "IsLooted", &LuaLoot::IsLooted },
-
-
+    { "AddItem", &LuaLoot::AddItem },
+    { "RemoveItem", &LuaLoot::RemoveItem },
+    { "GetMoney", &LuaLoot::GetMoney },
+    { "SetMoney", &LuaLoot::SetMoney },
+    { "HasItem", &LuaLoot::HasItem },
+    
     { NULL, NULL }
 };
 
@@ -1489,8 +1491,8 @@ void RegisterFunctions(Eluna* E)
     ElunaTemplate<AchievementEntry>::Register(E, "AchievementEntry");
     ElunaTemplate<AchievementEntry>::SetMethods(E, AchievementMethods);
 
-    ElunaTemplate<Roll>::Register(E, "Loot");
-    ElunaTemplate<Roll>::SetMethods(E, LootMethods);
+    ElunaTemplate<Loot>::Register(E, "Loot");
+    ElunaTemplate<Loot>::SetMethods(E, LootMethods);
 
     ElunaTemplate<Roll>::Register(E, "Roll");
     ElunaTemplate<Roll>::SetMethods(E, RollMethods);

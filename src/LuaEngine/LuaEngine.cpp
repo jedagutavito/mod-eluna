@@ -620,10 +620,6 @@ void Eluna::Push(lua_State* luastate, TempSummon const* summon)
 {
     Push<Creature>(luastate, summon);
 }
-void Eluna::Push(lua_State* luastate, Loot const* loot)
-{
-  Push<Loot>(luastate, loot);
-}
 void Eluna::Push(lua_State* luastate, Unit const* unit)
 {
     if (!unit)

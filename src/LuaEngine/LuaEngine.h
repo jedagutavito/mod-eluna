@@ -256,7 +256,6 @@ public:
     static void Push(lua_State* luastate, WorldObject const* obj);
     static void Push(lua_State* luastate, Unit const* unit);
     static void Push(lua_State* luastate, Pet const* pet);
-    static void Push(lua_State* luastate, Loot const* loot);
     static void Push(lua_State* luastate, TempSummon const* summon);
     static void Push(lua_State* luastate, ObjectGuid const guid);
     template<typename T>
