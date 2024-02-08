@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2010 - 2016 Eluna Lua Engine <http://emudevs.com/>
+* Copyright (C) 2010 - 2024 Eluna Lua Engine <http://emudevs.com/>
 * This program is free software licensed under GPL version 3
 * Please see the included DOCS/LICENSE.md for more information
 */
@@ -14,13 +14,12 @@
 #include "Group.h"
 #include "Item.h"
 #include "Chat.h"
-#ifndef TRINITY
 #include "Player.h"
-#endif
 #include "Weather.h"
 #include "World.h"
 #include "Hooks.h"
 #include "LFG.h"
+#include "LootMgr.h"
 #include "ElunaUtility.h"
 #include "HttpManager.h"
 #include "EventEmitter.h"
@@ -29,49 +28,27 @@
 
 extern "C"
 {
-#include "lua.h"
+    #include "lua.h"
 };
 
-#if defined(TRINITY) || AZEROTHCORE
 struct ItemTemplate;
 typedef BattlegroundTypeId BattleGroundTypeId;
-#else
-struct ItemPrototype;
-typedef ItemPrototype ItemTemplate;
-typedef SpellEffectIndex SpellEffIndex;
-struct SpellEntry;
-typedef SpellEntry SpellInfo;
-#ifdef CLASSIC
-typedef int Difficulty;
-#endif
-#endif
-#ifndef AZEROTHCORE
-struct AreaTriggerEntry;
-#else
 typedef AreaTrigger AreaTriggerEntry;
-#endif
+
 class AuctionHouseObject;
 struct AuctionEntry;
-#if defined(TRINITY) || AZEROTHCORE
 class Battleground;
 typedef Battleground BattleGround;
-#endif
 class Channel;
 class Corpse;
 class Creature;
 class CreatureAI;
 class GameObject;
-#if defined(TRINITY) || AZEROTHCORE
 class GameObjectAI;
-#endif
 class Guild;
 class Group;
-#if defined(TRINITY) || AZEROTHCORE
 class InstanceScript;
 typedef InstanceScript InstanceData;
-#else
-class InstanceData;
-#endif
 class ElunaInstanceAI;
 class Item;
 class Pet;
@@ -79,26 +56,12 @@ class Player;
 class Quest;
 class Spell;
 class SpellCastTargets;
-#if defined(TRINITY) || AZEROTHCORE
 class TempSummon;
-#else
-class TemporarySummon;
-typedef TemporarySummon TempSummon;
-#endif
 // class Transport;
 class Unit;
 class Weather;
 class WorldPacket;
-#ifndef CLASSIC
-#ifndef TBC
-#if defined(TRINITY) || AZEROTHCORE
 class Vehicle;
-#else
-class VehicleInfo;
-typedef VehicleInfo Vehicle;
-#endif
-#endif
-#endif
 
 struct lua_State;
 class EventMgr;
@@ -120,14 +83,7 @@ struct LuaScript
 
 #define ELUNA_STATE_PTR "Eluna State Ptr"
 #define LOCK_ELUNA Eluna::Guard __guard(Eluna::GetLock())
-
-#if defined(TRINITY)
-#define ELUNA_GAME_API TC_GAME_API
-#elif defined(AZEROTHCORE)
 #define ELUNA_GAME_API AC_GAME_API
-#else
-#define ELUNA_GAME_API
-#endif
 
 class ELUNA_GAME_API Eluna
 {
@@ -261,6 +217,7 @@ public:
     BindingMap< EntryKey<Hooks::GossipEvents> >*     PlayerGossipBindings;
     BindingMap< EntryKey<Hooks::InstanceEvents> >*   MapEventBindings;
     BindingMap< EntryKey<Hooks::InstanceEvents> >*   InstanceEventBindings;
+    BindingMap< EventKey<Hooks::UnitEvents> >*       UnitEventBindings;
 
     BindingMap< UniqueObjectKey<Hooks::CreatureEvents> >*  CreatureUniqueBindings;
 
@@ -299,6 +256,7 @@ public:
     static void Push(lua_State* luastate, WorldObject const* obj);
     static void Push(lua_State* luastate, Unit const* unit);
     static void Push(lua_State* luastate, Pet const* pet);
+    static void Push(lua_State* luastate, Loot const* loot);
     static void Push(lua_State* luastate, TempSummon const* summon);
     static void Push(lua_State* luastate, ObjectGuid const guid);
     template<typename T>
@@ -429,12 +387,8 @@ public:
     bool OnQuestAccept(Player* pPlayer, GameObject* pGameObject, Quest const* pQuest);
     bool OnQuestReward(Player* pPlayer, GameObject* pGameObject, Quest const* pQuest, uint32 opt);
     void GetDialogStatus(const Player* pPlayer, const GameObject* pGameObject);
-#ifndef CLASSIC
-#ifndef TBC
     void OnDestroyed(GameObject* pGameObject, WorldObject* attacker);
     void OnDamaged(GameObject* pGameObject, WorldObject* attacker);
-#endif
-#endif
     void OnLootStateChanged(GameObject* pGameObject, uint32 state);
     void OnGameObjectStateChanged(GameObject* pGameObject, uint32 state);
     void UpdateAI(GameObject* pGameObject, uint32 diff);
@@ -492,16 +446,12 @@ public:
     void OnBattlegroundDesertion(Player* player, const BattlegroundDesertionType type);
     void OnCreatureKilledByPet(Player* player, Creature* killed);
 
-#ifndef CLASSIC
-#ifndef TBC
     /* Vehicle */
     void OnInstall(Vehicle* vehicle);
     void OnUninstall(Vehicle* vehicle);
     void OnInstallAccessory(Vehicle* vehicle, Creature* accessory);
     void OnAddPassenger(Vehicle* vehicle, Unit* passenger, int8 seatId);
     void OnRemovePassenger(Vehicle* vehicle, Unit* passenger);
-#endif
-#endif
 
     /* AreaTrigger */
     bool OnAreaTrigger(Player* pPlayer, AreaTriggerEntry const* pTrigger);
@@ -560,11 +510,7 @@ public:
 
     /* World */
     void OnOpenStateChange(bool open);
-#ifndef AZEROTHCORE
-    void OnConfigLoad(bool reload);
-#else
     void OnConfigLoad(bool reload, bool isBefore);
-#endif
     void OnShutdownInitiate(ShutdownExitCode code, ShutdownMask mask);
     void OnShutdownCancel();
     void OnStartup();
@@ -574,13 +520,13 @@ public:
 
     /* Battle Ground */
     void OnBGStart(BattleGround* bg, BattleGroundTypeId bgId, uint32 instanceId);
-#if AZEROTHCORE
     void OnBGEnd(BattleGround* bg, BattleGroundTypeId bgId, uint32 instanceId, TeamId winner);
-#else
-    void OnBGEnd(BattleGround* bg, BattleGroundTypeId bgId, uint32 instanceId, Team winner);
-#endif
     void OnBGCreate(BattleGround* bg, BattleGroundTypeId bgId, uint32 instanceId);
     void OnBGDestroy(BattleGround* bg, BattleGroundTypeId bgId, uint32 instanceId);
+
+    /* Unit */
+    void OnAuraApply(Unit* unit, Aura* aura);
+    void OnAuraRemove(Unit* unit, Aura* aura, AuraRemoveMode removeMode);
 };
 template<> Unit* Eluna::CHECKOBJ<Unit>(lua_State* L, int narg, bool error);
 template<> Object* Eluna::CHECKOBJ<Object>(lua_State* L, int narg, bool error);
