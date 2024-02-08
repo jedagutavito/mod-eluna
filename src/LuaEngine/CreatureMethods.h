@@ -12,6 +12,7 @@
  *
  * Inherits all methods from: [Object], [WorldObject], [Unit]
  */
+#include "lualib/lua.h"
 namespace LuaCreature
 {
     /**
@@ -815,6 +816,40 @@ namespace LuaCreature
     {
         Eluna::Push(L, creature->GetLootMode());
         return 1;
+    }
+
+    int GetLoot(lua_State* L, Creature* creature) // TODO: Implement LootMode features
+    {
+        const Loot* loot = &creature->loot;
+        Eluna::Push(L, loot->isLooted());
+        return 1;
+    }
+
+    int AddLootItem(lua_State* L, Creature* creature)
+    {
+      uint16 loot_mode = creature->GetLootMode();
+      uint32 itemid = Eluna::CHECKVAL<uint32>(L, 2);
+      uint32 min_count = Eluna::CHECKVAL<uint32>(L, 3);
+      uint32 max_count = Eluna::CHECKVAL<uint32>(L, 4);
+
+      Loot* loot = &creature->loot;
+
+      LootStoreItem newLootStoreItem(itemid, 0, 100.00f, false, loot_mode, 0, min_count, max_count);
+      loot->AddItem(newLootStoreItem);
+      return 0;
+    }
+
+    int RemoveLootItem(lua_State* L, Creature* creature)
+    {
+      uint32 itemid = Eluna::CHECKVAL<uint32>(L, 2);
+      Loot* loot = &creature->loot;
+      loot->items.erase(
+          std::remove_if(
+              loot->items.begin(), loot->items.end(), [itemid](const LootItem& item)
+                {
+                    return item.itemid == itemid;
+                }), loot->items.end());
+      return 0;
     }
 
     /**
