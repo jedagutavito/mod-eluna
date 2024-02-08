@@ -265,7 +265,6 @@ ElunaRegister<WorldObject> WorldObjectMethods[] =
     { "PlayMusic", &LuaWorldObject::PlayMusic },
     { "PlayDirectSound", &LuaWorldObject::PlayDirectSound },
     { "PlayDistanceSound", &LuaWorldObject::PlayDistanceSound },
-    { "Data", &LuaWorldObject::Data },
 
     { NULL, NULL }
 };
@@ -1226,7 +1225,6 @@ ElunaRegister<Map> MapMethods[] =
 
     // Other
     { "SaveInstanceData", &LuaMap::SaveInstanceData },
-    { "Data", &LuaMap::Data },
 
     { NULL, NULL }
 };
@@ -1509,5 +1507,4 @@ void RegisterFunctions(Eluna* E)
 
     ElunaTemplate<unsigned long long>::Register(E, "unsigned long long", true);
 
-    LuaVal::Register(E->L);
 }

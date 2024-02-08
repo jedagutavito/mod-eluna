@@ -7,8 +7,6 @@
 #ifndef WORLDOBJECTMETHODS_H
 #define WORLDOBJECTMETHODS_H
 
-#include "LuaValue.h"
-
 /***
  * Inherits all methods from: [Object]
  */
@@ -1086,36 +1084,6 @@ namespace LuaWorldObject
         else
             obj->PlayDistanceSound(soundId);
         return 0;
-    }
-
-    /**
-     * Returns a runtime-persistent cache tied to the [WorldObject].
-     * This data will remain for as long as the [WorldObject] exists, or until a server restart.
-     *
-     * A reload of the Lua state will NOT clear this cache.
-     *
-     * This cache can be added to and read from with the following sub-methods.
-     *
-     * -- Sets the key-value pair in the cache
-     * WorldObject:Data():Set("key", val)
-     *
-     * -- Returns the value from the cache using the key
-     * local val = WorldObject:Data():Get("key")
-     *
-     * -- Removes the key-value pair from the cache
-     * WorldObject:Data():Set("key", nil)
-     *
-     * -- Returns all the key-value pairs as a Lua table indexed by the keys
-     * local table = WorldObject:Data():AsTable()
-     *
-     * @return LuaVal lua_data
-     */
-    int Data(lua_State* L, WorldObject* obj)
-    {
-        if (obj->lua_data == nullptr) {
-            obj->lua_data = new LuaVal({});
-        }
-        return LuaVal::PushLuaVal(L, *(obj->lua_data));
     }
 };
 #endif
