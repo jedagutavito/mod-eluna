@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2010 - 2016 Eluna Lua Engine <http://emudevs.com/>
+* Copyright (C) 2010 - 2024 Eluna Lua Engine <http://emudevs.com/>
 * This program is free software licensed under GPL version 3
 * Please see the included DOCS/LICENSE.md for more information
 */
@@ -51,7 +51,13 @@ namespace LuaItemTemplate
      */
     int GetName(lua_State* L, ItemTemplate* itemTemplate)
     {
-        Eluna::Push(L, itemTemplate->Name1);
+        uint8 locale = Eluna::CHECKVAL<uint8>(L, 2, DEFAULT_LOCALE);
+
+        std::string name = itemTemplate->Name1;
+        if (ItemLocale const* il = eObjectMgr->GetItemLocale(itemTemplate->ItemId))
+            ObjectMgr::GetLocaleString(il->Name, static_cast<LocaleConstant>(locale), name);
+
+        Eluna::Push(L, name);
         return 1;
     }
 
@@ -184,6 +190,19 @@ namespace LuaItemTemplate
     int GetRequiredLevel(lua_State* L, ItemTemplate* itemTemplate)
     {
         Eluna::Push(L, itemTemplate->RequiredLevel);
+        return 1;
+    }
+
+    /**
+     * Returns the [ItemTemplate]' Icon.
+     *
+     * @return string icon
+    */
+    int GetIcon(lua_State* L, ItemTemplate* itemTemplate)
+    {
+        const ItemDisplayInfoEntry* dispInfo = sItemDisplayInfoStore.LookupEntry(itemTemplate->DisplayInfoID);
+        Eluna::Push(L, dispInfo->inventoryIcon);
+
         return 1;
     }
 }
