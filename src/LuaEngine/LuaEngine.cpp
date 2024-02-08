@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2010 - 2016 Eluna Lua Engine <http://emudevs.com/>
+* Copyright (C) 2010 - 2024 Eluna Lua Engine <http://emudevs.com/>
 * This program is free software licensed under GPL version 3
 * Please see the included DOCS/LICENSE.md for more information
 */
@@ -14,44 +14,24 @@
 #include "ElunaCreatureAI.h"
 #include "ElunaInstanceAI.h"
 
-#if defined(TRINITY_PLATFORM) && defined(TRINITY_PLATFORM_WINDOWS)
-#if TRINITY_PLATFORM == TRINITY_PLATFORM_WINDOWS
-#define ELUNA_WINDOWS
-#endif
-#elif defined(AC_PLATFORM) && defined(AC_PLATFORM_WINDOWS)
 #if AC_PLATFORM == AC_PLATFORM_WINDOWS
-#define ELUNA_WINDOWS
-#endif
-#elif defined(PLATFORM) && defined(PLATFORM_WINDOWS)
-#if PLATFORM == PLATFORM_WINDOWS
-#define ELUNA_WINDOWS
-#endif
-#else
-#error Eluna could not determine platform
+    #define ELUNA_WINDOWS
 #endif
 
 // Some dummy includes containing BOOST_VERSION:
 // ObjectAccessor.h Config.h Log.h
-#if !defined MANGOS
 #define USING_BOOST
-#endif
 
-#ifdef USING_BOOST
 #include <boost/filesystem.hpp>
-#else
-#include <ace/ACE.h>
-#include <ace/Dirent.h>
-#include <ace/OS_NS_sys_stat.h>
-#endif
 
 extern "C"
 {
-// Base lua libraries
-#include "lua.h"
-#include "lualib.h"
-#include "lauxlib.h"
+    // Base lua libraries
+    #include "lua.h"
+    #include "lualib.h"
+    #include "lauxlib.h"
 
-// Additional lua libraries
+    // Additional lua libraries
 };
 
 Eluna::ScriptList Eluna::lua_scripts;
@@ -70,11 +50,9 @@ void Eluna::Initialize()
     LOCK_ELUNA;
     ASSERT(!IsInitialized());
 
-#if defined TRINITY || AZEROTHCORE
     // For instance data the data column needs to be able to hold more than 255 characters (tinytext)
     // so we change it to TEXT automatically on startup
     CharacterDatabase.DirectExecute("ALTER TABLE `instance` CHANGE COLUMN `data` `data` TEXT NOT NULL");
-#endif
 
     LoadScriptPaths();
 
@@ -107,20 +85,18 @@ void Eluna::LoadScriptPaths()
     lua_scripts.clear();
     lua_extensions.clear();
 
-#if defined(AZEROTHCORE)
     lua_folderpath = eConfigMgr->GetOption<std::string>("Eluna.ScriptPath", "lua_scripts");
-#else
-    lua_folderpath = eConfigMgr->GetStringDefault("Eluna.ScriptPath", "lua_scripts");
-#endif
 
 #ifndef ELUNA_WINDOWS
     if (lua_folderpath[0] == '~')
         if (const char* home = getenv("HOME"))
             lua_folderpath.replace(0, 1, home);
 #endif
+
     ELUNA_LOG_INFO("[Eluna]: Searching scripts from `{}`", lua_folderpath);
     lua_requirepath.clear();
     GetScripts(lua_folderpath);
+
     // Erase last ;
     if (!lua_requirepath.empty())
         lua_requirepath.erase(lua_requirepath.end() - 1);
@@ -183,6 +159,7 @@ ItemGossipBindings(NULL),
 PlayerGossipBindings(NULL),
 MapEventBindings(NULL),
 InstanceEventBindings(NULL),
+UnitEventBindings(NULL),
 
 CreatureUniqueBindings(NULL)
 {
@@ -224,11 +201,7 @@ void Eluna::CloseLua()
 
 void Eluna::OpenLua()
 {
-#if defined(AZEROTHCORE)
     enabled = eConfigMgr->GetOption<bool>("Eluna.Enabled", true);
-#else
-    enabled = eConfigMgr->GetBoolDefault("Eluna.Enabled", true);
-#endif
 
     if (!IsEnabled())
     {
@@ -281,6 +254,7 @@ void Eluna::CreateBindStores()
     PlayerGossipBindings     = new BindingMap< EntryKey<Hooks::GossipEvents> >(L);
     MapEventBindings         = new BindingMap< EntryKey<Hooks::InstanceEvents> >(L);
     InstanceEventBindings    = new BindingMap< EntryKey<Hooks::InstanceEvents> >(L);
+    UnitEventBindings        = new BindingMap< EventKey<Hooks::UnitEvents> >(L);
 
     CreatureUniqueBindings   = new BindingMap< UniqueObjectKey<Hooks::CreatureEvents> >(L);
 }
@@ -304,6 +278,7 @@ void Eluna::DestroyBindStores()
     delete BGEventBindings;
     delete MapEventBindings;
     delete InstanceEventBindings;
+    delete UnitEventBindings;
 
     delete CreatureUniqueBindings;
 
@@ -324,6 +299,7 @@ void Eluna::DestroyBindStores()
     BGEventBindings = NULL;
     MapEventBindings = NULL;
     InstanceEventBindings = NULL;
+    UnitEventBindings = NULL;
 
     CreatureUniqueBindings = NULL;
 }
@@ -361,7 +337,6 @@ void Eluna::GetScripts(std::string path)
 {
     ELUNA_LOG_DEBUG("[Eluna]: GetScripts from path `{}`", path);
 
-#ifdef USING_BOOST
     boost::filesystem::path someDir(path);
     boost::filesystem::directory_iterator end_iter;
 
@@ -403,53 +378,6 @@ void Eluna::GetScripts(std::string path)
             }
         }
     }
-#else
-    ACE_Dirent dir;
-    if (dir.open(path.c_str()) == -1) // Error opening directory, return
-        return;
-
-    lua_requirepath +=
-        path + "/?.lua;" +
-        path + "/?.ext;" +
-        path + "/?.dll;" +
-        path + "/?.so;";
-
-    ACE_DIRENT *directory = 0;
-    while ((directory = dir.read()))
-    {
-        // Skip the ".." and "." files.
-        if (ACE::isdotdir(directory->d_name))
-            continue;
-
-        std::string fullpath = path + "/" + directory->d_name;
-
-        // Check if file is hidden
-#ifdef ELUNA_WINDOWS
-        DWORD dwAttrib = GetFileAttributes(fullpath.c_str());
-        if (dwAttrib != INVALID_FILE_ATTRIBUTES && (dwAttrib & FILE_ATTRIBUTE_HIDDEN))
-            continue;
-#else
-        std::string name = directory->d_name;
-        if (name[0] == '.')
-            continue;
-#endif
-
-        ACE_stat stat_buf;
-        if (ACE_OS::lstat(fullpath.c_str(), &stat_buf) == -1)
-            continue;
-
-        // load subfolder
-        if ((stat_buf.st_mode & S_IFMT) == (S_IFDIR))
-        {
-            GetScripts(fullpath);
-            continue;
-        }
-
-        // was file, try add
-        std::string filename = directory->d_name;
-        AddScriptPath(filename, fullpath);
-    }
-#endif
 }
 
 static bool ScriptPathComparator(const LuaScript& first, const LuaScript& second)
@@ -538,11 +466,7 @@ void Eluna::RunScripts()
 void Eluna::InvalidateObjects()
 {
     ++callstackid;
-#ifdef TRINITY
-    ASSERT(callstackid, "Callstackid overflow");
-#else
     ASSERT(callstackid && "Callstackid overflow");
-#endif
 }
 
 void Eluna::Report(lua_State* _L)
@@ -598,12 +522,7 @@ bool Eluna::ExecuteCall(int params, int res)
         ASSERT(false); // stack probably corrupt
     }
 
-#if defined(AZEROTHCORE)
     bool usetrace = eConfigMgr->GetOption<bool>("Eluna.TraceBack", false);
-#else
-    bool usetrace = eConfigMgr->GetBoolDefault("Eluna.TraceBack", false);
-#endif
-
     if (usetrace)
     {
         lua_pushcfunction(L, &StackTrace);
@@ -695,7 +614,7 @@ void Eluna::Push(lua_State* luastate, const char* str)
 }
 void Eluna::Push(lua_State* luastate, Pet const* pet)
 {
-    Push<Creature>(luastate, pet);
+    Push<Pet>(luastate, pet);
 }
 void Eluna::Push(lua_State* luastate, TempSummon const* summon)
 {
@@ -1193,6 +1112,15 @@ int Eluna::Register(lua_State* L, uint8 regtype, uint32 entry, ObjectGuid guid, 
                 return 1; // Stack: callback
             }
             break;
+        case Hooks::REGTYPE_UNIT:
+            if (event_id < Hooks::UNIT_EVENT_COUNT)
+            {
+                auto key = EventKey<Hooks::UnitEvents>((Hooks::UnitEvents)event_id);
+                bindingID = UnitEventBindings->Insert(key, functionRef, shots);
+                createCancelCallback(L, bindingID, UnitEventBindings);
+                return 1; // Stack: callback
+            }
+            break;
     }
     luaL_unref(L, LUA_REGISTRYINDEX, functionRef);
     std::ostringstream oss;
@@ -1233,9 +1161,7 @@ int Eluna::CallOneFunction(int number_of_functions, int number_of_arguments, int
 
     // Copy the arguments from the bottom of the stack to the top.
     for (int argument_index = first_argument_index; argument_index <= arguments_top; ++argument_index)
-    {
         lua_pushvalue(L, argument_index);
-    }
     // Stack: event_id, [arguments], [functions], event_id, [arguments]
 
     ExecuteCall(number_of_arguments, number_of_results);
